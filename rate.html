@@ -1,0 +1,130 @@
+<!doctype html>
+<html itemscope="" itemtype="http://schema.org/WebApplication" browserRequirements="HTML5 required" accessMode="textOnVisual" accessModeSufficient="visual"/>
+<head>
+	<!--
+	 *	Copyright Chris Schnaufer All Rights Reserved
+	 *	Author: Chris Schnaufer
+	 *
+	 *	This heading is is restricted by the following numbered items:
+	 *		1. must be included in all derivatives of this file
+	 *		2. must be included in all copies of this file
+	 *		3. must not be changed without written consent from the Author
+	 *		4. Is not governed by any license(s) covering the rest of this file
+	 *
+	 *	The rest of this file (not consisting of this heading) is protected under 
+	 *	GNU GENERAL PUBLIC LICENSE Version 3.
+	 *	This file can be freely used, shared, and modified as permitted by
+	 *	by the preceeding license
+	 -->
+	<title>Rate Art</title>
+	<link rel="stylesheet" href="./aon.css">
+	<script type="text/javascript">
+		var maxUpload = 0;
+		var uploadCount = 0;
+
+		function possiblePageReload() {
+			if (uploadCount => maxUpload) {
+//				location.reload(true);
+			}
+		}
+		function fileLoaded(evt) {
+			uploadCount++;
+			if (evt.status >= 300) {
+				console.log(evt);
+			}
+			possiblePageReload();
+		}
+		function uploadFailed(evt) {
+			console.log(evt);
+			uploadCount++;
+			possiblePageReload();
+		}
+		function uploadStopped(evt) {
+			console.log(evt);
+			uploadCount++;
+			possiblePageReload();
+		}
+		function uploadFiles(files) {
+			var req;
+			var fd;
+
+			if (!files || !files.length) {
+				return;
+			}
+
+			maxUpload += files.length;
+			for (var i = 0; i < files.length; i++) {
+				req = new XMLHttpRequest();
+				fd = new FormData();
+
+				if (req && fd) {
+					fd.append("i",files[i]);
+					fd.append("u",1);
+
+					req.open("POST", "./newImage.php", true);
+
+					req.addEventListener("load", fileLoaded);
+					req.addEventListener("error", uploadFailed); 
+					req.addEventListener("abort", uploadStopped);
+
+					req.send(fd);
+				}
+			}
+		}
+		function imgdragenter(evt) {
+			evt.currentTarget.classList.replace("image_drop_normal","image_drop_active");
+		}
+		function imgdragleave(evt) {
+			evt.currentTarget.classList.replace("image_drop_active","image_drop_normal");
+		}
+		function imgdragover(evt) {
+			evt.preventDefault();
+			evt.dataTransfer.dropEffect = "copy"
+		}
+		function imgdrop(evt) {
+			evt.preventDefault();
+			if (evt.currentTarget) {
+				evt.currentTarget.classList.replace("image_drop_active","image_drop_normal");
+			}
+			if (evt.dataTransfer && evt.dataTransfer.files) {
+				uploadFiles(evt.dataTransfer.files);
+			}
+		}
+		function imgBrowseChange(evt) {
+			if (evt.target && evt.target.files) {
+				uploadFiles(evt.target.files);
+			}
+		}
+		function imgbrowse(evt,browseId) {
+			var elid = browseId || "image_file";
+			var el = document.getElementById(browseId);
+			if(!el) {
+				console.log("Missing image file browse element '"+elid+"', ID received '"+browseId+"'");
+				return;
+			}
+			el.addEventListener('change', imgBrowseChange);
+			if (el.click) {
+				el.click(evt);
+			}
+		}
+	</script>
+</head>
+<body class="body_style">
+	<div id="titlebar" class="page_titlebar logo_bg_default">
+		<div id="welcome" class="vcenter">Welcome chris.schnauf@gmail.com</div>
+	</div>
+	<div id="workspace" class="workspace_cols">
+		<div id="image_drop_frame">
+			<div id="image_drop" class="image_drop_normal" ondragover="imgdragover(event);" ondrop="imgdrop(event);" ondragenter="imgdragenter(event);" ondragleave="imgdragleave(event);"></div>
+			<div id="new_prompt">
+				<div id="img_prompt">Drop a file to the left target or click browse to load an image</div>
+				<div id="img_browse_wrap"><div id="img_browse" class="hcenter button_body"><div id="img_browse_txt" class="button_text" onclick="imgbrowse(event,'image_file');">Browse</div></div></div>
+			</div>
+		</div>
+		<?php // Write out all the images
+			echo $imagesHtml;
+		?>
+	</div>
+	<input type="file" id="image_file" class="input_file" accept="image/*" multiple/>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!doctype html>
+<html itemscope="" itemtype="http://schema.org/WebApplication" browserRequirements="HTML5 required" accessMode="textOnVisual" accessModeSufficient="visual"/>
+<head>
+	<!--
+	 *	Copyright Chris Schnaufer All Rights Reserved
+	 *	Author: Chris Schnaufer
+	 *
+	 *	This heading is is restricted by the following numbered items:
+	 *		1. must be included in all derivatives of this file
+	 *		2. must be included in all copies of this file
+	 *		3. must not be changed without written consent from the Author
+	 *		4. Is not governed by any license(s) covering the rest of this file
+	 *
+	 *	The rest of this file (not consisting of this heading) is protected under 
+	 *	GNU GENERAL PUBLIC LICENSE Version 3.
+	 *	This file can be freely used, shared, and modified as permitted by
+	 *	by the preceeding license
+	 -->
+	<title>Art Or Not</title>
+	<link rel="stylesheet" href="./aon.css">
+	<script type="text/javascript" src="https://sdk.amazonaws.com/js/aws-sdk-2.182.0.min.js"></script>
+    <script type="text/javascript" src="js/vendor/aws-cognito-sdk.min.js"></script>
+    <script type="text/javascript" src="js/vendor/amazon-cognito-identity.min.js"></script>
+	<script type="text/javascript" src="aws/config.js"></script>
+	<script type="text/javascript" src="aws/cognito.js"></script>
+	<script type="text/javascript">
+		var err_el_wrap_name = "err_msg_wrap";
+		var err_el_name = "err_msg";
+		var err_el_hide_class = "el_hide";
+		var err_el_show_class = "el_reset";
+		var err_timer_id;
+		function display_error(msg, timeout_ms = 0) {
+			var el = document.getElementById(err_el_name);
+			var err_msg = "" + msg;
+
+			// Make sure we have somewhere and something to display
+			if (!el) {
+				console.log("Error: " + msg);
+				console.log("Unable to find element '" + err_el_name + "' to display error on");
+				return;
+			}
+			if (err_msg.length <= 0) {
+				return;
+			}
+
+			// Setting the message
+			el.innerHTML = msg.replace(/\</g, '&lt;').replace(/\>/g, '&gt;');
+
+			// Showing the message
+			el = document.getElementById(err_el_wrap_name);
+			if (!el) {
+				// Something isn't configured correctly, try showing the 
+				// element containing the text
+				console.log("Unable to find error wrapper element '" + err_el_wrap_name + "'");
+				el = document.getElementById(err_el_name);
+			}
+			if (el.classList.contains(err_el_hide_class)) {
+				el.classList.remove(err_el_hide_class);
+			}
+
+			// Check if the message only lives for a short while
+			if (timeout_ms > 0) {
+				err_timer_id = window.setTimeout(hide_error, timeout_ms, el);
+			}
+ 		}
+ 		function hide_error(err_el) {
+ 			var el = err_el || document.getElementById(err_el_wrap_name);
+
+ 			if (el) {
+ 				if (el.classList.contains(err_el_show_class)) {
+ 					el.classList.remove(err_el_show_class);
+ 				}
+ 				if (!el.classList.contains(err_el_hide_class)) {
+ 					el.classList.add(err_el_hide_class);
+ 				}
+ 			}
+ 		}
+ 		function registerUser(user, pw) {
+ 			// Show the registration window and confirm the password
+ 		}
+ 		function loginFailure(err, un, pw) {
+ 			if (err.code == "UserNotFoundException") {
+ 				registerUser(un, pw);
+ 			} else {
+ 				console.log(err.message);
+ 				display_error("We are having problems communicating with the server");
+ 			}
+		}
+		function dologin() {
+			var el;
+			var user;
+			var pw;
+
+			// Confirm the account
+			el = document.getElementById("un");
+			if (el) {user = el.value;}
+			el = document.getElementById("pw");
+			if (el) {pw = el.value;}
+			if (!user || !pw) {
+				display_error("Please enter an email and password to login or register");
+				return;
+			}
+			if (!aon || !aon.aws || !aon.aws.cognito) {
+				console.log("Missing required namespace aon.aws.cognito");
+				display_error("We are experiencing problems. Please refresh and try again later");
+				return;
+			}
+
+			hide_error();
+			aon.aws.cognito.signin(user, pw, 
+						/* success */	() => {document.location.href = "rate.php";},
+						/* failure */	((un,pw) => {return function(err) {loginFailure(err, un, pw)};
+											})(user,pw)
+						);
+		}
+	</script>
+</head>
+<body class="body_style">
+
+	<!-- Login screen -->
+	<div class="win_wrapper">
+		<div id="login_win" class="vcenter hcenter">
+			<div id="logo" class="logo_bg_center win_title"></div>
+			<div id="intro">Share with the world what you think of Art</div>
+			<img src="./img/login_art.jpeg" alt="login screen art photo" longdesc="Image downloaded from https://www.pexels.com  If this image violates any copyright, please notify this website to have it removed" title="Rate and comment on this image"></img>
+			<div id="err_msg_wrap" class="err_msg_wrap<?php if(isset($err) === false){echo ' el_hide';} ?>"><div id="err_msg" class="err_msg">
+				<?php if(isset($err) === true) {echo $err;} ?>
+			</div></div>
+			<form id="login_form">
+			  <div id="login_wrap" class="login_wrap_cols">
+				<div id="un_wrap" class="un_wrap_col">
+					<label id="un_label" for="un" title="Enter your email address to continue">email</label>
+					<input type="email" id="un" placeholder="email address" autocomplete="email"  required title="Enter your email address to continue"/>
+					<div id="un_req" class="required_field" title="An email address is required">*</div>
+				</div>
+				<div id="pw_wrap" class="pw_wrap_col">
+					<label id="pw_label" for="pw" title="Passwords must contain uppercase and lowercase letters, numbers, and special symbols, and be at least 8 characters long">password</label>
+					<input type="password" id="pw" required title="Passwords must contain uppercase and lowercase letters, numbers, and special symbols, and be at least 8 characters long"/>
+					<div id="un_req" class="required_field" title="A password must be specified">*</div>
+				</div>
+				<div id="login_next_wrap" class="login_next_wrap_col">
+					<div id="login_next" class="button_body" onclick="dologin();" title="Click to register or login">
+						<div id="login_next_text" class="button_text">Continue</div>
+					</div>
+				</div>
+			  </div>
+			</form>
+		</div>
+	</div>
+
+	<!-- Window for registering users -->
+	<div id="register" class="win_wrapper reg_win_wrapper el_hide">
+		<div id="register_win" class="vcenter hcenter">
+			<div id="intro">Confirm your password to register</div>
+			<div id="reg_err_msg_wrap" class="err_msg_wrap el_hide">
+				<div id="reg_err_msg" class="err_msg"></div>
+			</div>
+			<form id="register_form">
+				<div id="register_wrap" class="register_wrap_cols">
+					<div id="reg_un_wrap" class="reg_un_wrap_col">
+						<div id="reg_un_label" class="reg_un_label">email</div>
+						<div id="reg_un" class="reg_un"></div>
+					</div>
+					<div id="reg_pw_wrap" class="reg_pw_wrap_col">
+						<label id="reg_pw_label" for="reg_pw" title="Passwords must contain uppercase and lowercase letters, numbers, and special symbols, and be at least 8 characters long">password</label>
+						<input type="password" id="reg_pw" required title="Passwords must contain uppercase and lowercase letters, numbers, and special symbols, and be at least 8 characters long"/>
+					</div>
+					<div id="pw_confirm_wrap" class="pw_confirm_wrap_col">
+						<label id="pw_confirm_label" for="pw_confirm" title="Confirm your password to complete registration">confirm password</label>
+						<input type="password" id="pw_confirm" required title="Passwords must contain uppercase and lowercase letters, numbers, and special symbols, and be at least 8 characters long"/>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+</body>
+</html>

@@ -1,0 +1,496 @@
+/*
+ *	Copyright Chris Schnaufer All Rights Reserved
+ *	Author: Chris Schnaufer
+ *
+ *	This heading is is restricted by the following numbered items:
+ *		1. must be included in all derivatives of this file
+ *		2. must be included in all copies of this file
+ *		3. must not be changed without written consent from the Author
+ *		4. Is not governed by any license(s) covering the rest of this file
+ *
+ *	The rest of this file (not consisting of this heading) is protected under 
+ *	GNU GENERAL PUBLIC LICENSE Version 3.
+ *	This file can be freely used, shared, and modified as permitted by
+ *	by the preceeding license
+ */
+
+/* Body declarations */
+.body_style {
+	background-color:#FDFDFD;
+	background-image: url("./img/background.png");
+}
+
+/* Positioning styles */
+.hcenter {
+	margin:auto;
+}
+
+.vcenter {
+	position: relative;
+	top: 50%;
+ 	transform: translateY(-50%);
+}
+
+.el_hide {
+	display:none;
+}
+
+.el_reset {
+	display:reset;
+}
+
+/* Common logo as background styles */
+.logo_bg_center {
+	background-image:url("./img/title.png");
+	background-position:center;
+	background-repeat:no-repeat;
+}
+
+.logo_bg_left {
+	background-image:url("./img/title.png");
+	background-position:left;
+	background-repeat:no-repeat;
+}
+
+.logo_bg_right {
+	background-image:url("./img/title.png");
+	background-position:right;
+	background-repeat:no-repeat;
+}
+
+@media (max-width:700px) {
+	.logo_bg_default {
+		background-image:url("./img/title.png");
+		background-position:right;
+		background-repeat:no-repeat;
+	}
+}
+
+@media (min-width:701px) {
+	.logo_bg_default {
+		background-image:url("./img/title.png");
+		background-position:center;
+		background-repeat:no-repeat;
+	}
+}
+/* Common button formatting styles */
+.button_body {
+	padding:3px;
+	background-color:lightgreen;
+	width:fit-content;
+	border:1px solid darkgreen;
+	border-radius:5px;
+ 	height:12px;
+ 	cursor:default;
+}
+
+.button_text {
+	color:black;
+	vertical-align:middle;
+	position: relative;
+	top: 50%;
+ 	transform: translateY(-50%);
+}
+
+/* File browse control styles */
+.input_file {
+	opacity:0;
+}
+
+/* Generic title style */
+.page_titlebar {
+	position:fixed;
+	top:0px;
+	left:0px;
+	width:100%;
+	height:40px;
+	background-color:white;
+	border-bottom:1px solid #6C6C6C;
+}
+
+/* Wrapper class for a separate window (dialog-style) */
+.win_wrapper {
+	position:fixed;
+	top:0px;
+	left:0px;
+	width:100%;
+	height:100%;
+}
+
+/* Title bar for a window */
+.win_title {
+	background-color: #FAFAFA;
+	height:40px;
+	width:100%;
+	margin-top:5px;
+	border-bottom:1px solid #6C6C6C;
+}
+
+.required_field {
+	color:red;
+	float:left;
+	margin-right:5px;
+}
+
+/* Error message styles */
+.err_msg_wrap {
+	width:100%;
+}
+
+.err_msg {
+	color:red;
+	text-align:center;
+}
+
+/*
+ * Login window styles
+ */
+
+/* Login window style */
+#login_win {
+	width:fit-content;
+	min-width:250px;
+	border:1px solid black;
+	border-radius:5px;
+	background-color:white;
+}
+
+#login_win>#intro {
+	text-align:center;
+	color:#4C4C4C;
+	padding:5px;
+	font-family:serif;
+}
+
+/* Wrapper style for login elements */
+@media (min-width:526px) {
+	.login_wrap_cols {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.un_wrap_col {
+		grid-column:1 / 2;
+	}
+	.pw_wrap_col {
+		grid-column:2 / 2;
+	}
+	.login_next_wrap_col {
+		grid-column:2 / 2;
+	}
+}
+@media (max-width:525px) {
+	.login_wrap_cols {
+		grid-template-columns: repeat(1, 1fr);
+	}
+	.un_wrap_col {
+		grid-column:1 / 1;
+	}
+	.pw_wrap_col {
+		grid-column:1 / 1;
+	}
+	.login_next_wrap_col {
+		grid-column:1 / 1;
+	}
+}
+
+#login_wrap {
+	padding:3px;
+	padding-bottom:5px;
+	display:grid;
+	grid-gap:5px;
+/*	grid-auto-rows: minmax(350px, auto);*/
+}
+
+/* Username (un) styles */
+#un_label {
+	font-family:sans-serif;
+	font-weight:lighter;
+	color:dimgray;
+ 	padding-right:5px;
+}
+
+#un {
+}
+
+/* Password (pw) styles */
+#pw_label {
+	font-family:sans-serif;
+	font-weight:lighter;
+	color:dimgray;
+ 	padding-right:5px;
+}
+
+#pw {
+}
+
+/* Login button styles */
+#login_next_wrap {
+	margin-right:10px;
+}
+
+@media (min-width:526px) {
+	#login_next {
+	 	float:right;
+	}
+}
+@media (max-width:525px) {
+	#login_next {
+	 	float:left;
+	}
+}
+
+#login_next_text {
+}
+
+#welcome {
+	float:left;
+	font-style:italic;
+	font-size:11pt;
+	margin-left:20px;
+}
+
+/*
+ * User registration styles
+ */
+.reg_win_wrapper {
+	background-color:rgba(128,128,128,0.70);
+}
+
+#register_win>#intro {
+	text-align:center;
+	color:#4C4C4C;
+	padding:5px;
+	font-family:serif;
+}
+
+/*
+ * Workspace styles
+ */
+@media (min-width:2051px) {
+	.workspace_cols {
+		grid-template-columns: repeat(8, 1fr);
+	}
+}
+@media (max-width:2050px) {
+	.workspace_cols {
+		grid-template-columns: repeat(7, 1fr);
+	}
+}
+@media (max-width:1740px) {
+	.workspace_cols {
+		grid-template-columns: repeat(6, 1fr);
+	}
+}
+@media (max-width:1430px) {
+	.workspace_cols {
+		grid-template-columns: repeat(5, 1fr);
+	}
+}
+@media (max-width:1120px) {
+	.workspace_cols {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}
+@media (max-width:810px) {
+	.workspace_cols {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+@media (max-width:500px) {
+	.workspace_cols {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+@media (max-width:400px) {
+	.workspace_cols {
+		grid-template-columns: repeat(1, 1fr);
+	}
+}
+
+#workspace {
+	margin-top:42px;
+	padding:10px;
+	padding-top:15px;
+	display:grid;
+	grid-gap:5px;
+	grid-auto-rows: minmax(300px, auto);
+}
+
+#image_drop_frame {
+	min-width:300px;
+	max-width:300px;
+	min-height:200px;
+	max-height:200px;
+	border:1px solid darkgray;
+	border-radius:5px;
+	background-color:white;
+	position:relative;
+}
+
+#image_drop {
+	width:120px;
+	height:120px;
+	margin-top:20px;
+	margin-left:20px;
+}
+
+.image_drop_normal {
+	border:1px dashed red;
+	border-radius:7px;
+	background-color:#EDEDED;
+	background-image: url("./img/drop_target.png");
+	background-position:center;
+	background-repeat:no-repeat;
+}
+
+.image_drop_active {
+	border:1px solid green;
+	border-radius:7px;
+	background-color:#EDFFED;
+	background-image: url("./img/drop_target.png");
+	background-position:center;
+	background-repeat:no-repeat;
+}
+
+#new_prompt {
+	position:absolute;
+	top:20px;
+	right:0px;
+}
+
+#img_prompt {
+	margin-top:10px;
+	max-width:150px;
+	font-weight:lighter;
+	color:#4C4C4C;
+	text-align:center;
+}
+
+#img_browse_wrap {
+	padding-top:15px;
+}
+
+#img_browse {
+}
+
+#img_browse_txt {
+}
+
+/* Thumbnail image and decorations UI styling */
+.image_frame {
+	min-width:300px;
+	max-width:300px;
+	min-height:350px;
+	max-height:350px;
+	padding:2px;
+	border:1px solid darkgray;
+	border-radius:5px;
+	background-color:white;
+}
+
+.img_title_wrap {
+	display:grid;
+	grid-template-columns: repeat(2, 1fr);
+}
+
+.rating_frame {
+	grid-column:1 / 2;
+	width:fit-content;
+	margin:5px;
+	min-width:100px;
+	padding:2px;
+	border:1px solid lightgray;
+	background-color:#F0F0F0;
+	display:grid;
+	grid-gap:2px;
+	grid-auto-rows: minmax(15px, auto);
+	grid-template-columns: repeat(5, 1fr);
+}
+
+.rate {
+	min-width:15px;
+	max-width:15px;
+	min-height:15px;
+	max-height:15px;
+	background-color:#F0F0F0;
+	border:1px solid #F0F0F0;
+}
+
+.rate:hover {
+	border:1px solid black;
+	background-color:white;
+	background-image: url("./img/rate_on.png");
+	background-position:center;
+	background-repeat:no-repeat;
+}
+
+.rate_on {
+	background-image: url("./img/rate_on.png");
+	background-position:center;
+	background-repeat:no-repeat;
+}
+
+.rate_off {
+	background-image: url("./img/rate_off.png");
+	background-position:center;
+	background-repeat:no-repeat;
+}
+
+.img_name_wrap {
+	grid-column:2 / 2;
+}
+
+.img_name_frame {
+	text-align:right;
+	height:100%;
+	vertical-align:middle;
+}
+
+.img_name {
+	font-family:sans-serif;
+	margin-right:5px;
+	color:darkgray;
+}
+
+.img_tn_frame {
+	min-width:250px;
+	min-height:250px;
+	height:250px;
+	border:1px solid black;
+	border-radius:7px;
+	background-color:black;
+	text-align:center;
+}
+
+.img_tn_frame:before {
+    content: ' ';
+    display: inline-block;
+    vertical-align: middle;
+    height: 100%;
+}
+
+.img_tn {
+	border:1px solid black;
+	border-radius:3px;
+	max-width:250px;
+	max-height:250px;
+	vertical-align:middle;
+}
+
+.comment_frame {
+	margin-left:10px;
+}
+
+.comment {
+	font-style:italic;
+}
+
+.comment_add_frame {
+	margin-left:15px;
+}
+
+.comment_add {
+	font-family:sans-serif;
+	font-size:small;
+	font-style:italic;
+}
+
