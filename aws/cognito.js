@@ -76,11 +76,11 @@
 		 */
 		cognito.register = function(user_email,password, cbSuccess, cbFail) {
 			// Type of registration data for Cognito
-			var email_info = {Name: 'email', Value: 'email'};
-			var email_attr = new AmazonCognitoIdentity.cognitoUserAttribute(email_info);
+			var email_info = {Name: 'email', Value: user_email};
+			var email_attr = new AmazonCognitoIdentity.CognitoUserAttribute(email_info);
 
 			// Call to add the user
-			user_pool.signUp(toUsername(user_email), password, [email_attr], null, 
+			user_pool.signUp(user_email, password, [email_attr], null, 
 				(err,result) => {if (err) 
 									{if (cbFail) cbFail(err);}
 								 else cbSuccess(result);
@@ -96,7 +96,7 @@
 		 */
 		cognito.signin = function(user_email, password, cbSuccess, cbFail) {
 			var auth_detail = new AmazonCognitoIdentity.AuthenticationDetails(
-								{Username: toUsername(user_email),
+								{Username: user_email,
 								 Password: password}
 								 );
 			var user = cognitoUserInstance(user_email);
@@ -117,7 +117,7 @@
 		cognito.confirm = function(user_email, user_code, cbSuccess, cbFail) {
 			var user = cognitoUserInstance(user_email);
 
-			user.confirmRegistration(code, true, (err,result) => 
+			user.confirmRegistration(user_code, true, (err,result) => 
 					{if(err) 
 						{if (cbFail) cbFail(err);}
 					 else cbSuccess(result);}
@@ -144,7 +144,7 @@
 		 */
 		function cognitoUserInstance(email) {
 			return new AmazonCognitoIdentity.CognitoUser(
-						{Username: toUsername(email),
+						{Username: email,
 						 Pool: user_pool}
 					 	);
 		}

@@ -73,6 +73,14 @@
 		background-repeat:no-repeat;
 	}
 }
+
+/* User instructions styles */
+.instruction_wrap {
+	padding:5px;
+	font-family:sans-serif;
+	font-weight:200;
+}
+
 /* Common button formatting styles */
 .button_body {
 	padding:3px;
@@ -139,6 +147,16 @@
 
 .err_msg {
 	color:red;
+	text-align:center;
+}
+
+/* Error message styles */
+.msg_wrap {
+	width:100%;
+}
+
+.msg {
+	color:green;
 	text-align:center;
 }
 
@@ -255,11 +273,176 @@
 	background-color:rgba(128,128,128,0.70);
 }
 
+#register_win {
+	width:fit-content;
+	min-width:250px;
+	border:1px solid black;
+	border-radius:5px;
+}
+
 #register_win>#intro {
 	text-align:center;
 	color:#4C4C4C;
 	padding:5px;
 	font-family:serif;
+	background-color:#DEDEDE;
+	border:1px solid #DEDEDE;
+	border-top-left-radius:5px;
+	border-top-right-radius:5px;
+}
+
+#reg_err_msg_wrap {
+	background-color:white;
+	padding:5px;
+}
+
+#register_wrap {
+	padding:5px;
+	padding-bottom:5px;
+	display:grid;
+	grid-gap: 6px 5px;
+	background-color:white;
+}
+
+.register_wrap_cols {
+	grid-template: repeat(4, 1fr) / repeat(2, 1fr);
+}
+
+.reg_un_wrap_col {
+}
+
+#reg_un_label {
+	grid-column:1 / 2;
+}
+
+#reg_un {
+	grid-column:2 / 2;
+}
+
+.reg_pw_wrap_col {
+}
+
+#reg_pw_label {
+	grid-column:1 / 2;
+}
+
+#reg_pw {
+	grid-column:2 / 2;
+}
+
+.pw_confirm_wrap_col {
+}
+
+#pw_confirm_label {
+	grid-column:1 / 2;
+}
+
+#pw_confirm {
+	grid-column:2 / 2;
+}
+
+#cancel_btn_wrap {
+	padding-top:3px;
+}
+
+#register_btn_wrap {
+	padding-top:3px;
+}
+
+#register_btn_wrap>#register {
+	float:right;
+}
+
+/*
+ * Verification window styles
+ */
+ .confirm_win_wrapper {
+	background-color:rgba(128,128,128,0.70);
+}
+
+#confirm_win {
+	width:fit-content;
+	max-width:400px;
+	min-width:250px;
+	border:1px solid black;
+	border-radius:5px;
+}
+
+#confirm_win>#intro {
+	text-align:center;
+	color:#4C4C4C;
+	padding:5px;
+	font-family:serif;
+	background-color:#DEDEDE;
+	border:1px solid #DEDEDE;
+	border-top-left-radius:5px;
+	border-top-right-radius:5px;
+}
+
+#confirm_err_msg_wrap {
+	background-color:white;
+	padding:5px;
+}
+
+#confirm_win>#instruction_wrap {
+	background-color:white;
+}
+
+#confirm_instruction {
+	color:#2D2D2D;
+}
+
+#confirm_wrap {
+	padding:4px;
+	padding-bottom:5px;
+	display:grid;
+	grid-gap: 6px 5px;
+	background-color:white;
+}
+
+.confirm_wrap_cols {
+	grid-template: repeat(3, 1fr) / repeat(2, 1fr);
+}
+
+.confirm_un_wrap_col {
+}
+
+#confirm_un_label {
+	grid-column:1 / 2;
+}
+
+#confirm_un {
+	grid-column:2 / 2;
+}
+
+.confirm_wrap_col {
+}
+
+#confirm_label {
+	grid-column:1 / 2;
+}
+
+#confirm {
+	grid-column:2 / 2;
+}
+
+.confirm_wrap_col {
+}
+
+#confirm_label {
+	grid-column:1 / 2;
+}
+
+#confirm {
+	grid-column:2 / 2;
+}
+
+#confirm_btn_wrap {
+	padding-top:3px;
+}
+
+#confirm_btn_wrap>#confirm_btn {
+	float:right;
 }
 
 /*
