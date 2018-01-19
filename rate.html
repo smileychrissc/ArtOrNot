@@ -107,11 +107,19 @@
 				el.click(evt);
 			}
 		}
+		function bodyLoaded() {
+			var el = document.querySelector("#titlebar>#welcome");
+			var user = localStorage.getItem("u");
+
+			if (el && user) {
+				el.innerHTML = "Welcome " + user;
+			}
+		}
 	</script>
 </head>
-<body class="body_style">
+<body class="body_style" onload="bodyLoaded();">
 	<div id="titlebar" class="page_titlebar logo_bg_default">
-		<div id="welcome" class="vcenter">Welcome chris.schnauf@gmail.com</div>
+		<div id="welcome" class="vcenter">Welcome Anonymous</div>
 	</div>
 	<div id="workspace" class="workspace_cols">
 		<div id="image_drop_frame">

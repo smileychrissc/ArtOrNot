@@ -21,287 +21,11 @@
 	<script type="text/javascript" src="https://sdk.amazonaws.com/js/aws-sdk-2.182.0.min.js"></script>
     <script type="text/javascript" src="js/vendor/aws-cognito-sdk.min.js"></script>
     <script type="text/javascript" src="js/vendor/amazon-cognito-identity.min.js"></script>
+    <script type="text/javascript" src="js/uiMessage.js"></script>
+	<script type="text/javascript" src="js/login.js"></script>
 	<script type="text/javascript" src="aws/config.js"></script>
 	<script type="text/javascript" src="aws/cognito.js"></script>
 	<script type="text/javascript">
-		var err_el_wrap_id = "err_msg_wrap";
-		var err_el_id = "err_msg";
-		var err_el_hide_class = "el_hide";
-		var err_el_show_class = "el_reset";
-		var err_timer_id;
-		function display_message(msg, timer = 2000, alt_el_id = undefined, alt_el_wrap_id = undefined) {
-			display_error(msg, timer, alt_el_id || "msg", alt_el_wrap_id || "msg_wrap");
-		}
-		function display_error(msg, timeout_ms = 0, alt_el_id = undefined, alt_el_wrap_id = undefined) {
-			var el_id = alt_el_id || err_el_id;
-			var el_wrap_id = alt_el_wrap_id || err_el_wrap_id;
-			var el = document.getElementById(el_id);
-			var err_msg = "" + msg;
-
-			// Make sure we have somewhere and something to display
-			if (!el) {
-				console.log("Error: " + msg);
-				console.log("Unable to find element '" + el_id + "' to display error on");
-				return;
-			}
-			if (err_msg.length <= 0) {
-				return;
-			}
-
-			// Setting the message
-			el.innerHTML = msg.replace(/\</g, '&lt;').replace(/\>/g, '&gt;');
-
-			// Showing the message
-			el = document.getElementById(el_wrap_id);
-			if (!el) {
-				// Something isn't configured correctly, try showing the 
-				// element containing the text
-				console.log("Unable to find error wrapper element '" + el_wrap_id + "'");
-				el = document.getElementById(el_id);
-			}
-			if (el.classList.contains(err_el_hide_class)) {
-				el.classList.remove(err_el_hide_class);
-			}
-
-			// Check if the message only lives for a short while
-			if (timeout_ms > 0) {
-				err_timer_id = window.setTimeout(hide_error, timeout_ms, el);
-			}
- 		}
- 		function hide_error(err_el) {
- 			var el = err_el || document.getElementById(err_el_wrap_id);
-
- 			if (el) {
- 				if (el.classList.contains(err_el_show_class)) {
- 					el.classList.remove(err_el_show_class);
- 				}
- 				if (!el.classList.contains(err_el_hide_class)) {
- 					el.classList.add(err_el_hide_class);
- 				}
- 			}
- 		}
- 		function hide_error_id(err_id) {
- 			hide_error(document.getElementById(err_id));
- 		}
- 		function registerUser(user, pw) {
- 			// Show the registration window and confirm the password
- 			var win = document.getElementById("register_win_wrap");
- 			var el;
- 			if (!win) {
- 				console.log("Unable to find the registration window");
- 				display_error("Unable to verify your account. Please try later");
- 				return;
- 			}
-
- 			// Setup the UI elements
- 			el = document.querySelector("#register_win #reg_un");
- 			if (el) {
- 				if (el.style.readonly) {
- 					delete el.style.readonly;
- 				}
- 				el.value = user;
- 				el.style.readonly = true;
- 			}
- 			el = document.querySelector("#register_win #reg_pw");
- 			if (el) {
- 				el.value = pw;
- 			}
- 			el = document.querySelector("#register_win #pw_confirm");
- 			if (el) {
- 				el.focus();
- 			}
-
- 			// Show the window hiding an errors
-			hide_error_id("reg_err_msg_wrap");
- 			if (win.classList.contains("el_hide")) {
- 				win.classList.remove("el_hide");
- 			}
- 		}
- 		function confirmUser(user) {
- 			// Show the registration window and confirm the password
- 			var win = document.getElementById("confirm_win_wrap");
- 			var el;
- 			if (!win) {
- 				console.log("Unable to find the confirmation window");
- 				display_error("Unable to confirm your account. Please try later");
- 				return;
- 			}
-
- 			// Setup the UI elements
- 			el = document.querySelector("#confirm_win #confirm_un");
- 			if (el) {
- 				if (el.style.readonly) {
- 					delete el.style.readonly;
- 				}
- 				el.value = user;
- 				el.style.readonly = true;
- 			}
- 			el = document.querySelector("#confirm_win #confirm");
- 			if (el) {
- 				el.focus();
- 			}
-
- 			// Show the window hiding an errors
-			hide_error_id("confirm_err_msg_wrap");
- 			if (win.classList.contains("el_hide")) {
- 				win.classList.remove("el_hide");
- 			}
- 		}
- 		function loginFailure(err, un, pw) {
- 			if (err.code == "UserNotFoundException") {
- 				registerUser(un, pw);
- 			} else if (err.code == "UserNotConfirmedException") {
- 				confirmUser(un);
- 			} else if (err.code == "NotAuthorizedException") {
- 				display_error("Invalid username and password combination. Please try again");
- 			} else {
- 				console.log(err.message);
- 				display_error("We are having problems communicating with the server");
- 			}
-		}
-		function dologin() {
-			var el;
-			var user;
-			var pw;
-
-			// Confirm the account
-			el = document.getElementById("un");
-			if (el) {user = el.value;}
-			el = document.getElementById("pw");
-			if (el) {pw = el.value;}
-			if (!user || !pw) {
-				display_error("Please enter an email and password to login or register");
-				return;
-			}
-			if (!aon || !aon.aws || !aon.aws.cognito) {
-				console.log("Missing required namespace aon.aws.cognito");
-				display_error("We are experiencing problems. Please refresh and try again later");
-				return;
-			}
-
-			hide_error();
-			aon.aws.cognito.signin(user, pw, 
-						/* success */	() => {document.location.href = "rate.php";},
-						/* failure */	((un,pw) => {return (err) => {loginFailure(err, un, pw);};
-											})(user,pw)
-						);
-		}
-		function cancelWin(win_id) {
-			var el;
-			if (!win_id) {
-				console.log("Unknown window is being canceled")
-				return;
-			}
-
-			el = document.getElementById(win_id);
-			if (!el) {
-				console.log("Unable to find window '" + win_id + "' to hide it");
-				return;
-			}
-			if (!el.classList.contains("el_hide")) {
-				el.classList.add("el_hide");
-			}
-		}
-		function register(win_id) {
-			var el;
-			var un;
-			var pw1;
-			var pw2;
-
-			// Get and compare passwords 
-			el = document.querySelector("#" + win_id + " #reg_pw");
-			if (el) {
-				pw1 = el.value;
-			}
-			el = document.querySelector("#" + win_id + " #pw_confirm");
-			if (el) {
-				pw2 = el.value;
-			}
-			if (pw1 != pw2) {
-				display_error("The passwords are not the same", 0, "reg_err_msg", "reg_err_msg_wrap");
-				return;
-			}
-			if (!pw1 || !pw1.length) {
-				display_error("A password is required", 0, "reg_err_msg", "reg_err_msg_wrap");
-				return;
-			}
-
-			// Get the username and register the user
-			el = document.querySelector("#" + win_id + " #reg_un");
-			if (el) {
-				un = el.value;
-			}
-			if (!un || !un.length) {
-				display_error("A username is required", 0, "reg_err_msg", "reg_err_msg_wrap");
-				return;
-			}
-
-			hide_error_id("reg_err_msg_wrap");
-			aon.aws.cognito.register(un, pw1, 
-						/* success */	((user) => {return () => {confirmUser(user);};})(un),
-						/* failure */	(err) => {registerFailure(err,"#" + win_id + " #pw_confirm");}
-						);
-		}
-		function registerFailure(err, conf_pw_el_id) {
-			if (err.code == "InvalidPasswordException") {
-				display_error("Invalid password. Please use mixed case, numbers, and symbols", 0, "reg_err_msg", "reg_err_msg_wrap");
-			} else {
-				display_error("Unable to register", 0, "reg_err_msg", "reg_err_msg_wrap");
-			}
-			console.log(err);
-
-			if (conf_pw_el_id) {
-				var el = document.getElementById(conf_pw_el_id);
-				if (el) {
-					el.focus();
-				}
-			}
-		}
-		function confirm(win_id) {
-			var el;
-			var un;
-			var code;
-
-			// Get and compare passwords 
-			el = document.querySelector("#" + win_id + " #confirm");
-			if (el) {
-				code = el.value;
-			}
-			if (!code || !code.length) {
-				display_error("A confirmation code is required", 0, "confirm_err_msg", "confirm_err_msg_wrap");
-				return;
-			}
-
-			// Get the username and register the user
-			el = document.querySelector("#" + win_id + " #confirm_un");
-			if (el) {
-				un = el.value;
-			}
-			if (!un || !un.length) {
-				display_error("A username is required", 0, "reg_err_msg", "reg_err_msg_wrap");
-				return;
-			}
-
-			hide_error_id("confirm_err_msg_wrap");
-			aon.aws.cognito.confirm(un, code, 
-						/* success */	() => {cancelWin(win_id);display_message("Code confirmed. Continue logging in");},
-						/* failure */	(err) => {confirmFailure(err, "#" + win_id + " #confirm");}
-						);
-		}
-		function confirmFailure(err, confirm_el_id) {
-			if (err.code == "CodeMismatchException") {
-				display_error("The code doesn't match. Please try again", 0, "confirm_err_msg", "confirm_err_msg_wrap");
-			} else {
-				display_error("Unable to confirm registration", 0, "confirm_err_msg", "confirm_err_msg_wrap");
-			}
-			console.log(err);
-			if (confirm_el_id) {
-				var el = document.getElementById(confirm_el_id);
-				if (el) {
-					el.focus();
-				}
-			}
-		}
 	</script>
 </head>
 <body class="body_style">
@@ -330,7 +54,7 @@
 					<div id="un_req" class="required_field" title="A password must be specified">*</div>
 				</div>
 				<div id="login_next_wrap" class="login_next_wrap_col">
-					<div id="login_next" class="button_body" onclick="dologin();" title="Click to register or login">
+					<div id="login_next" class="button_body" onclick="aon.login();" title="Click to register or login">
 						<div id="login_next_text" class="button_text">Continue</div>
 					</div>
 				</div>
@@ -355,12 +79,12 @@
 					<label id="pw_confirm_label" for="pw_confirm" title="Confirm your password to complete registration">confirm password</label>
 					<input type="password" id="pw_confirm" required title="Passwords must contain uppercase and lowercase letters, numbers, and special symbols, and be at least 8 characters long"></input>
 					<div id="cancel_btn_wrap">
-						<div id="cancel" class="button_body" onclick="cancelWin('register_win_wrap');">
+						<div id="cancel" class="button_body" onclick="aon.cancelWin('register_win_wrap');">
 							<div id="cancel_text" class="button_text">cancel</div>
 						</div>
 					</div>
 					<div id="register_btn_wrap">
-						<div id="register" class="button_body" onclick="register('register_win_wrap');">
+						<div id="register" class="button_body" onclick="aon.register('register_win_wrap');">
 							<div id="register_text" class="button_text">register</div>
 						</div>
 					</div>
@@ -387,12 +111,12 @@
 					<label id="confirm_label" for="confirm" title="Enter your confirmation code">confirm code</label>
 					<input type="text" id="confirm" required title="Enter your confirmation code"></input>
 					<div id="cancel_btn_wrap">
-						<div id="cancel" class="button_body" onclick="cancelWin('confirm_win_wrap');">
+						<div id="cancel" class="button_body" onclick="aon.cancelWin('confirm_win_wrap');">
 							<div id="cancel_text" class="button_text">cancel</div>
 						</div>
 					</div>
 					<div id="confirm_btn_wrap">
-						<div id="confirm_btn" class="button_body" onclick="confirm('confirm_win_wrap');">
+						<div id="confirm_btn" class="button_body" onclick="aon.confirm('confirm_win_wrap');">
 							<div id="confirm_btn_text" class="button_text">confirm</div>
 						</div>
 					</div>
