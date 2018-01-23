@@ -1,0 +1,22 @@
+{
+  "projectName": "Art Or Not",
+  "projectOwner": "smileychrissc",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "smileychrissc",
+      "name": "Chris Schnaufer",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/21159350&v=4",
+      "profile": "https://github.com/smileychrissc",
+      "contributions": [
+        "question",
+        "doc",
+        "review",
+        "talk"
+      ]
+    }
+}
