@@ -1,0 +1,495 @@
+'use strict';
+
+/*
+ *	Copyright Chris Schnaufer All Rights Reserved
+ *	Author: Chris Schnaufer
+ *
+ *	This heading is is restricted by the following numbered items:
+ *		1. must be included in all derivatives of this file
+ *		2. must be included in all copies of this file
+ *		3. must not be changed without written consent from the Author
+ *		4. Is not governed by any license(s) covering the rest of this file
+ *
+ *	The rest of this file (not consisting of this heading) is protected under 
+ *	GNU GENERAL PUBLIC LICENSE Version 3.
+ *	This file can be freely used, shared, and modified as permitted by
+ *	by the preceeding license
+ */
+
+/*
+ * Lambda function for managing comments in a dynamoDB environment
+ * Copy and paste this code into your lambda function
+ */
+
+const doc = require('dynamodb-doc');
+
+const dynamo = new doc.DynamoDB();
+
+// Common parameters for managing comments
+const imageParams = {TableName: 'aonImages'};
+const commentParams = {TableName: 'aonComment'};
+
+/**
+ * Adds, deletes, and retrieves comments
+ * Note that a comment is uniquely identified by its timestamp and imageId
+ */
+exports.handler = (event, context, callback) => {
+
+    const done = (err, res) => callback(null, {
+        statusCode: err ? '400' : '200',
+        body: err ? err.message : JSON.stringify(res),
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+
+    switch (event.httpMethod) {
+        case 'DELETE':
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Essential image parameters are missing"));
+                    return;
+                }
+                if (!validateString(query.id) || !validateString(query.user)) {
+                    done(new Error("A comment identifier and its user must be specified on delete"));
+                    return;
+                }
+                deleteComment(query.id, query.user, done);
+            }
+            break;
+            
+        case 'GET':
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Essential image parameters are missing"));
+                    return;
+                }
+                if (!validateString(query.imageId)) {
+                    done(new Error("An image ID must be specified when retrieving comments"));
+                    return;
+                }
+                getComment(query.imageId, query.id, query.range, done);
+            }
+            break;
+            
+        case 'POST':
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Essential image parameters are missing"));
+                    return;
+                }
+                if (!validateString(query.user) || !validateString(query.comment) || !validateString(query.imageId)) {
+                    done(new Error("A valid user name, comment, and image ID must be specified"));
+                    return;
+                }
+
+                addComment(query.imageId, query.user, query.comment, query.parentId, done);
+            }
+            break;
+            
+        case 'PUT':
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Essential image parameters are missing"));
+                    return;
+                }
+                if (!validateString(query.user) || !validateString(query.comment) || !validateString(query.id)) {
+                    done(new Error("A valid user name, comment, and comment identifier must be specified"));
+                    return;
+                }
+
+                updateComment(query.id, query.user, query.comment, query.parentId, done);
+            }
+            break;
+            
+        default:
+            done(new Error(`Unsupported method "${event.httpMethod}"`));
+    }
+};
+
+/** Validates a value is a string and not empty. A string of spaces is
+ * considered empty.
+ * @param string str The string to validate
+ * @return bool True if the string appears valid, false if not
+ */
+function validateString(str) {
+    if (typeof str != 'string') {
+        return false;
+    }
+    if (str.trim().length <= 0) {
+        return false;
+    }
+    return true;
+}
+
+/** Updates an existing comment entry with new text
+ * @param string id The comment identifier
+ * @param string user The user the comment belongs to
+ * @param string comment The comment itself
+ * @param string parent Optional comment parent identifier (for replies to comments)
+ * @param function cb The callback function when updating is complete
+ */
+function updateComment(id, user, comment, parent, cb) {
+    // Ensure the comment id belongs to the user (also with the correct parent if specified)
+    let validReq = existsPromise(id, user, parent);
+
+    // Update the comment
+    let update = (res) => {return new Promise((resolve,reject) => {
+            let ean = {'#CO' : 'comment', '#UN' : 'user'};   // Expression Attribute Names
+            let eav = {':co' : comment, ':un' : user};   // Expression Attribute Values
+            let ue = 'SET #CO = :co';    // Update Expression
+            let key = {'imageId' : res.imageId, 'timestamp' : id};
+            let ce = "#UN = :un";    // Condition Expression
+    
+            if (parent) {
+                ean['#PA'] = 'parent';
+                eav[':pa'] = parent;
+                ue += ', #PA = :pa';
+            }
+            
+            dynamo.updateItem(
+                Object.assign({
+                            ExpressionAttributeNames: ean,
+                            ExpressionAttributeValues: eav,
+                            Key: key,
+                            ReturnValues: 'ALL_NEW',
+                            UpdateExpression: ue,
+                            ConditionExpression: ce
+                        },
+                        commentParams
+                    ),
+                    (err,res) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        resolve(res.Attributes);
+                    }
+                );
+        });
+    };
+
+    // Return the common comment information
+    let filterReturn = commonReturnFilter(cb);
+
+    validReq
+        .then(update)
+        .then(filterReturn)
+        .catch((err) => cb(err));
+}
+
+/** Adds a new comment entry
+ * @param string imageId The image the comment belongs to
+ * @param string user The user the comment belongs to
+ * @param string comment The comment itself
+ * @param string parent Optional comment parent identifier (for replies to comments)
+ * @param function cb The callback function when adding is complete
+ */
+function addComment(imageId, user, comment, parent, cb) {
+    // Ensure the parentId exists
+    let validReq = imageExistsPromise(imageId);
+    
+    // Add the comment
+    let add = (res) => {return new Promise((resolve,reject) => {
+            let ts = (new Date).toJSON();
+            let item = {imageId: imageId, user: user, comment: comment, timestamp: ts};
+    
+            if (parent) {
+                item['parent'] = parent;
+            }
+            dynamo.putItem(
+                Object.assign({
+                        Item: item
+                    },
+                    commentParams),
+                (err,res) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(item);
+                }
+            );
+        });
+    };
+    
+    // Return the common comment information
+    let filterReturn = commonReturnFilter(cb);
+    
+    validReq
+        .then(add)
+        .then(filterReturn)
+        .catch((err) => cb(err));
+}
+
+/** Updates an existing comment entry with new text
+ * @param string imageId The image to retrieve comments for
+ * @param string id Optional comment identifier that returns one comment for the image
+ * @param string range The index range of return comments (not implemented yet)
+ * @param function cb The callback function when fetching is complete
+ */
+function getComment(imageId, id, range, cb) {
+    // Ensure the ID belongs to the image and that the image exists
+    let validReq = (id ? imageCommentExistsPromise(imageId, id) : imageExistsPromise(imageId));
+    
+    // Return the requested comment
+    let comm = (res) => {return new Promise((resolve,reject) => {
+            let ean = {'#ID' : 'imageId', '#TS' : 'timestamp', '#UN' : 'user', '#CO' : 'comment', '#PA' : 'parent'};   // Expression Attribute Names
+            let eav = {':id' : imageId};   // Expression Attribute Values
+            let fe = "#ID = :id";   // Filter Expression
+            let pe = '#TS, #UN, #CO, #PA';         // Projection Expression
+            
+            if (id) {
+                // The timestamp is already in the ean object (Expressions Attribute Names)
+                eav[':ts'] = id;
+                fe += ' AND #TS = :ts';
+            }
+
+            dynamo.scan(
+                Object.assign({
+                        ExpressionAttributeNames : ean,
+                        ExpressionAttributeValues : eav,
+                        FilterExpression : fe,
+                        ProjectionExpression : pe
+                    },
+                    commentParams
+                ),
+                (err,res) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    let ret = [];
+                    for (let i = 0; i < res.Count; i++) {
+                        let newItem = {
+                            'id' : res.Items[i].timestamp,
+                            'user' : res.Items[i].user,
+                            'comment' : res.Items[i].comment
+                            };
+    
+                        if (res.Items[i].parent) {
+                            newItem['parent'] = res.Items[i].parent;
+                        }
+                        
+                        ret.push(newItem);
+                    }
+                    
+                    resolve(ret);
+            });
+        });
+    };
+    
+    validReq
+        .then(comm)
+        .then((res) => cb(null,res))
+        .catch((err) => cb(err));
+}
+
+
+/** Deletes an existing comment
+ * @param string id Comment identifier to delete
+ * @param string user The user the comment belongs to
+ * @param function cb The callback function when deleting is complete
+ */
+function deleteComment(id, user, cb) {
+    // Ensure the ID exists for that user
+    let validReq = existsPromise(id, user);
+
+    let noChildren = (res) => {return new Promise((resolve,reject) => {
+        let ean = {'#ID' : 'timestamp', '#PA' : 'parent', '#IM' : 'imageId'};    // Expression Attribute Names
+        let eav = {':id' : id};             // Expression Attribute Values
+        let imageId = res.imageId;
+
+        dynamo.scan(
+            Object.assign({
+                    ExpressionAttributeNames : ean,
+                    ExpressionAttributeValues: eav,
+                    FilterExpression: '#PA = :id',
+                    ProjectionExpression: '#IM, #ID'
+                },
+                commentParams),
+            (err,res) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (res.Count > 0) {
+                    reject(new Error("Unable to delete comments that still have responses"));
+                    return;
+                }
+                resolve({imageId : imageId});
+            });
+        });
+    };
+    
+    // Remove the comment and any children
+    let del = (res) => {
+            dynamo.deleteItem(
+                Object.assign({
+                        Key: {
+                            imageId: res.imageId,
+                            timestamp: id
+                        }
+                    },
+                    commentParams
+                ),
+                (err,res) => {
+                    cb(err,res);
+                }
+            );
+        };
+    
+    validReq
+        .then(noChildren)
+        .then((res)=>{console.log("Then2");console.log(res);del(res);})
+        .catch((err) => cb(err));
+}
+
+/** Returns a promise that a comment exists
+ * @param string id The comment identifier
+ * @param string user The user the comment belongs to
+ * @param string parent Optional comment parent identifier (for replies to comments)
+ * @return Promise The promise that checks a comment exists
+ */
+function existsPromise(id, user, parent) {
+    return new Promise((resolve, reject) => {
+        let ean = {'#ID' : 'timestamp', '#US' : 'user', '#IM' : 'imageId'};   // Expression Attribute Names
+        let eav = {':id' : id, ':us' : user};   // Expression Attribute Values
+        let fe = "#ID = :id AND #US = :us";     // Filter Expression
+        let pe = '#ID, #IM';         // Projection Expression
+        
+        if (parent) {
+            ean['#PA'] = 'parent';
+            eav[':pa'] = parent;
+            fe += ' AND #PA = :pa';
+            pe += ', #PA';
+        }
+        
+        dynamo.scan(
+            Object.assign({
+                    ExpressionAttributeNames : ean,
+                    ExpressionAttributeValues : eav,
+                    FilterExpression : fe,
+                    ProjectionExpression : pe
+                },
+                commentParams
+            ),
+            (err,res) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (res.Count < 1) {
+                    reject(new Error("Unknown comment requested for update: " + user + " " + id));
+                    return;
+                }
+                if (parent && (res.Items[0].parent != parent)) {
+                    reject(new Error("Comment found but it has a different parent: " + user + " " + id));
+                    return;
+                }
+                resolve(res.Items[0]);
+            }
+        );
+    });
+}
+
+/** Returns a promise that an image exists
+ * @param string imageId The image identifier
+ * @return Promise The promise that checks an image exists
+ */
+function imageExistsPromise(imageId) {
+    return new Promise((resolve,reject) => {
+        let ean = {'#ID' : 'imageId'};   // Expression Attribute Names
+        let eav = {':id' : imageId};   // Expression Attribute Values
+        let fe = "#ID = :id";   // Filter Expression
+        let pe = '#ID';         // Projection Expression
+        dynamo.scan(
+            Object.assign({
+                    ExpressionAttributeNames : ean,
+                    ExpressionAttributeValues : eav,
+                    FilterExpression : fe,
+                    ProjectionExpression : pe
+                },
+                imageParams
+            ),
+            (err,res) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (res.Count < 1) {
+                    reject(new Error("Image was not found " + imageId));
+                    return;
+                }
+                resolve(res.Items[0]);
+            }
+        );
+    });
+}
+
+/** Returns a promise that a comment belonging to an image exists
+ * @param string imageId The image identifier
+ * @param string id The comment identifier
+ * @return Promise The promise that checks a comment belonging to an exists
+ */
+function imageCommentExistsPromise(imageId, id) {
+    return new Promise((resolve, reject) => {
+        let ean = {'#ID' : 'imageId', '#TS' : 'timestamp'};   // Expression Attribute Names
+        let eav = {':id' : imageId, ':ts' : id};   // Expression Attribute Values
+        let fe = "#ID = :id AND #TS = :ts";     // Filter Expression
+        let pe = '#TS';         // Projection Expression
+
+        dynamo.scan(
+            Object.assign({
+                    ExpressionAttributeNames : ean,
+                    ExpressionAttributeValues : eav,
+                    FilterExpression : fe,
+                    ProjectionExpression : pe
+                },
+                commentParams
+            ),
+            (err,res) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(res.Items);
+            }
+        );
+    });
+}
+
+/** Returns a common set of fields from a comment entry
+ * @param function cb The function to call when completed
+ */
+function commonReturnFilter(cb) {
+    return (res) => {
+        if (res && res.timestamp && res.user && res.comment) {
+            var ret = {
+               user: res.user,
+               id: res.timestamp,
+               comment: res.comment
+            };
+            if (res.parent) {
+                ret['parent'] = res.parent;
+            }
+            cb(null, ret);
+        } else {
+            cb(new Error("Unable to return comment results due to missing data"));
+        }
+    };
+}
+

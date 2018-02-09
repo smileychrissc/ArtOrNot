@@ -1,0 +1,469 @@
+'use strict';
+
+/*
+ *	Copyright Chris Schnaufer All Rights Reserved
+ *	Author: Chris Schnaufer
+ *
+ *	This heading is is restricted by the following numbered items:
+ *		1. must be included in all derivatives of this file
+ *		2. must be included in all copies of this file
+ *		3. must not be changed without written consent from the Author
+ *		4. Is not governed by any license(s) covering the rest of this file
+ *
+ *	The rest of this file (not consisting of this heading) is protected under 
+ *	GNU GENERAL PUBLIC LICENSE Version 3.
+ *	This file can be freely used, shared, and modified as permitted by
+ *	by the preceeding license
+ */
+
+/*
+ * Lambda function for managing images and ratings in a dynamoDB environment
+ * Copy and paste this code into your lambda function
+ */
+
+const doc = require('dynamodb-doc');
+
+const dynamo = new doc.DynamoDB();
+
+// Common parameters used for dynamoDB actions, per table
+const imageParams = {TableName: 'aonImages'};
+const ratingParams = {TableName: 'aonRating'};
+const commentParams = {TableName: 'aonComment'};
+
+
+/**
+ * Handles images and ratings
+ */
+exports.handler = (event, context, callback) => {
+
+    const done = (err, res) => callback(null, {
+        statusCode: err ? '400' : '200',
+        body: err ? err.message : JSON.stringify(res),
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+
+    switch (event.httpMethod) {
+        case 'DELETE':
+            {
+                var query = event.queryStringParameters;
+              
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Delete parameters are missing"));
+                }
+                if (!validateString(query.user) || !validateString(query.image)) {
+                    done(new Error("A valid user image and image name are required"));
+                }
+
+                removeImage(query.user, query.image, done);
+            }
+            break;
+            
+        case 'GET':
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Image rating fetch parameters are missing"));
+                }
+                if (!validateString(query.imageID)) {
+                    done(new Error("A valid image ID must be specified"));
+                    return;
+                }
+                
+                getImageRate(query.imageID, query.user, done);
+            }
+            break;
+            
+        case 'POST':
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Essential image parameters are missing"));
+                }
+                if (!validateString(query.user) || !validateString(query.image)) {
+                    done(new Error("A valid user name and image must be specified"));
+                    return;
+                }
+
+                // Make sure the image entry exists
+                ensureImage(query.user, query.image, done);
+            }
+            break;
+
+        case 'PUT': // Adds/updates an image's rating
+            {
+                let query = event.queryStringParameters;
+
+                // Make sure we have the parameters we require
+                if (!query || (query == null)) {
+                    done(new Error("Essential rating parameters are missing"));
+                }
+                if (!validateString(query.user) || !validateString(query.imageID) || !validateString(""+query.rating)) {
+                    done(new Error("A valid user name, image ID, and rating must be specified"));
+                    return;
+                }
+
+                // Add the image rating
+                rateImage(query.imageID, query.user, query.rating, done);
+            }
+            break;
+            
+        default:
+            done(new Error(`Unsupported method "${event.httpMethod}"`));
+    }
+};
+
+/** Validates a value is a string and not empty. A string of spaces is
+ * considered empty.
+ * @param string str The string to validate
+ * @return bool True if the string appears valid, false if not
+ */
+function validateString(str) {
+    if (typeof str != 'string') {
+        return false;
+    }
+    if (str.trim().length <= 0) {
+        return false;
+    }
+    return true;
+}
+
+/** Returns the ratings for an image. Both the user's rating and a total rating
+ * @param string imageID The image identifier
+ * @param string user Optional user name. Must evaluate to false if it's not to be used. If a
+ *  requested user's entry is not found, a rating won't be returned for them
+ * @param function cb The function to call when the lookup is resolved
+ */
+function getImageRate(imageID, user, cb) {
+    let eav = {':id' : imageID, ':def' : "total"};  // Expression Attribute Values map tags to values
+    let fe = "#ID = :id AND (#UN = :def";           // Filter Expression filters lookup results
+    
+    // If a user is specified, we return their results as well
+    if (user) {
+        eav[':un'] = user;
+        fe += " OR #UN = :un";
+    }
+    fe += ")";
+    
+    dynamo.scan(
+        Object.assign({
+                ExpressionAttributeNames: {'#ID' : 'imageID', '#UN' : 'userName', '#RA' : 'rating'},
+                ExpressionAttributeValues: eav,
+                FilterExpression: fe,
+                ProjectionExpression: "#ID, #UN, #RA"
+            }, 
+            ratingParams), 
+        (err,res) => {
+                if (err) {
+                    cb(err,res);
+                    return;
+                }
+                let ret = [];
+                for (let i = 0; i < res.Count; i++) {
+                    if (res.Items[i].userName != "total") {
+                        ret.push(res.Items[i]);
+                    } else {
+                        let newItem = {
+                            imageID : res.Items[i].imageID,
+                            userName : res.Items[i].userName,
+                            rating: JSON.parse(res.Items[i].rating).average
+                        };
+                        ret.push(newItem);
+                    }
+                }
+                cb(null,ret);
+        });
+}
+
+/** Checks if an entry for the user annd image already exists and adds it if not
+ * @param string user The user associated with the image
+ * @param string image The name of the image to verify/add
+ * @param function cb The function to call after resolution of the exist/add operations
+ */
+function ensureImage(user, image, cb) {
+    
+    // Try to put a new item in asking for an error to be flagged if it already exists.
+    dynamo.putItem(
+        Object.assign(
+            {
+                Item: {userName : user, imageName : image, imageId : user + image},
+                ConditionExpression: "attribute_not_exists(userName) AND attribute_not_exists(imageName)"
+            },
+            imageParams), 
+        (err,res) => {
+                // Only report an error if the image for the user doesn't already exist
+                if (err && (err.code != "ConditionalCheckFailedException")) {
+                    cb(err,res);
+                    return;
+                }
+                cb (null,res);
+        });
+}
+
+/** Add or update the rating of an image for a user. Also updates the running total for the image
+ * @param string imageID The image identifier - the image is assumed to exist in the aonImages table already
+ * @param string user The name of the user performing the rating
+ * @param string rating The integer rating value to assign
+ * @param function cb The function to call when the rating update is resolved
+ */
+function rateImage(imageID, user, rating, cb) {
+
+    // Create a promise for updating/adding the image rating
+    let rate = new Promise((resolve,reject) => {
+            dynamo.putItem(
+                Object.assign({
+                        Item: {'imageID': imageID, 'rating': rating, userName: user},
+                        ReturnValues: 'ALL_OLD'
+                    },
+                    ratingParams),
+                (err,res) => {
+                        if (err) {reject(err); return;}
+                        resolve(res);
+                    }
+            );
+        });
+    
+    // Function to update the image's total if the update/add of the rating was successful
+    let total = (attribs) => {
+            dynamo.scan(
+                Object.assign({
+                        ExpressionAttributeNames: {'#ID' : 'imageID', '#UN' : 'userName', '#RA' : 'rating'},
+                        ExpressionAttributeValues: {':id' : imageID, ':def' : "total"},
+                        FilterExpression: "#UN = :def AND #ID = :id",
+                        ProjectionExpression: "#ID, #RA"
+                    }, 
+                    ratingParams), 
+                (err,res) => {
+                    if (err) {cb(err); return;}
+                    let totals;
+                    // Either parse out, or create an image's total score
+                    if (res.Count > 0) 
+                        totals = JSON.parse(res.Items[0].rating);
+                    else
+                        totals = {count: 0, ratingSum : 0};
+                    // If we have an old rating we need to remove it from the image's total
+                    if (attribs.Attributes && attribs.Attributes.rating) {
+                        totals.count--;
+                        totals.ratingSum -= attribs.Attributes.rating;
+                    }
+                    // Update the total score and put back into the table
+                    totals.count++;
+                    totals.ratingSum += parseInt(rating, 10);
+                    totals.average = totals.ratingSum / totals.count;
+                    dynamo.putItem(
+                        Object.assign({
+                                Item: {imageID : imageID, rating: JSON.stringify(totals), userName : "total"}
+                            },
+                            ratingParams),
+                        (err,res) => {
+                            cb(err,{image: imageID, total: totals.average, 'rating': rating});
+                        });
+                });
+        };
+    
+    // Perform adding/updating actions
+    rate
+      .then(total)
+      .catch((err) => {cb(err);})
+      ;
+}
+
+/** Removes image entry and all associated comments and ratings
+ * @param string user The user the image belongs to
+ * @param string image The image to remove
+ * @param function cb The callback when the delete is resolved
+ */
+function removeImage(user, image, cb) {
+    // Veryify the image for the user exists
+    let found = new Promise((resolve,reject) => {
+        dynamo.scan(
+                Object.assign({
+                        ExpressionAttributeNames: {'#IN' : 'imageName', '#UN' : 'userName'},
+                        ExpressionAttributeValues: {':in' : image, ':un' : user},
+                        FilterExpression: "#IN = :in AND #UN = :un",
+                        ProjectionExpression: "#IN, #UN"
+                    },
+                    imageParams),
+                (err,res) => {
+                    if(err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(res);
+                });
+        });
+    
+    // Remove the image
+    let rmImage = (res) => {return new Promise((resolve,reject) => {
+        // If there's no image, we shortcut the chain by rejecting with a null reason:
+        // this can happen if the user tries to delete an image more than once, quickly,
+        // and with network/AWS delays or issues
+        if (res.Count <= 0) {
+            reject(null);
+            return;
+        }
+        // We have an image, so we try to delete it
+        dynamo.deleteItem(
+                Object.assign({
+                        Key : {
+                            imageName : image,
+                            userName : user
+                        },
+                        ReturnValues: 'ALL_OLD'
+                    },
+                    imageParams),
+                (err,res) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    // If we don't have attributes, something deleted this entry already
+                    // and we're done
+                    if (!res.Attributes) {
+                        reject(null);
+                        return;
+                    }
+                    // Keep on keeping on
+                    resolve(res);
+                });
+        });
+    };
+    
+    // Get promise groups to remove entries
+    let rmRateProm = (res) => {return new Promise((resolve,reject) => {
+        dynamo.scan(
+            Object.assign({
+                    ExpressionAttributeNames: {'#ID' : 'imageID', '#UN' : 'userName'},
+                    ExpressionAttributeValues: {':id' : user + image},
+                    FilterExpression: "#ID = :id",
+                    ProjectionExpression: "#ID, #UN"
+                },
+                ratingParams),
+            (err,res) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                // Create group of promises to run
+                let promiseGroups = [];
+                let promises = [];
+                let count = res.Count || 0;
+                for (let i = 0; i < count; i++) {
+                    promises.push(new Promise((resolve,reject) => {
+                        dynamo.deleteItem(
+                            Object.assign({
+                                    Key: {
+                                        imageID : res.Items[i].imageID,
+                                        userName : res.Items[i].userName
+                                    }
+                                },
+                                ratingParams),
+                            (err,res) => {
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+                                resolve(res);
+                            });
+                        })
+                    );
+                    if (promises.length >= 5) {
+                        promiseGroups.push(promises);
+                        promises = [];
+                    }
+                }
+                // Add any left over promises that haven't been stored yet
+                if (promises.length > 0) {
+                    promiseGroups.push(promises);
+                }
+                resolve(promiseGroups);
+            });
+        });
+    };
+    
+    // Get the promises to remove comments
+    let rmCommentProm = (res) => {return new Promise((resolve,reject) => {
+        dynamo.scan(
+            Object.assign({
+                    ExpressionAttributeNames: {'#ID' : 'imageID', '#TS' : 'timestamp'},
+                    ExpressionAttributeValues: {':id' : user + image},
+                    FilterExpression: "#ID = :id",
+                    ProjectionExpression: "#ID, #TS"
+                },
+                commentParams),
+            (err,res) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                // Create groups of promises to run
+                let promiseGroups = [];
+                let promises = [];
+                let count = res.Count || 0;
+                for (let i = 0; i < count; i++) {
+                    promises.push(new Promise((resolve,reject) => {
+                        dynamo.deleteItem(
+                            Object.assign({
+                                    Key: {
+                                        imageID : res.Items[i].imageID,
+                                        timestamp : res.Items[i].timestamp
+                                    }
+                                },
+                                commentParams),
+                            (err,res) => {
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+                                resolve(res);
+                            });
+                        })
+                    );
+                    if (promises.length >= 5) {
+                        promiseGroups.push(promises);
+                        promises = [];
+                    }
+                }
+                // Add any left over promises that haven't been stored yet
+                if (promises.length > 0) {
+                    promiseGroups.push(promises);
+                }
+                resolve(promiseGroups);
+            });
+        });
+    };
+
+
+    // Run groups of promises for removing ratings and comments    
+    let runPromiseGroups = (groups) => {return new Promise((resolve,reject) => {
+            let killLoop = false;
+            for (let i = 0; i < groups.length; i++) {
+                Promise.all(groups[i]).catch((err) => {reject(err); killLoop = true;});
+                if (killLoop == true) {
+                    break;
+                }
+            }
+            // If we did not kill the loop and are here, we just let the return happen
+            if (!killLoop) {
+                resolve(groups.length);
+            }
+        });
+    };
+    
+    found
+        .then(rmImage)
+        .then(rmRateProm).then(runPromiseGroups)
+        .then(rmCommentProm).then(runPromiseGroups)
+        .then((res) => {cb(null,res);})
+        .catch((err) => {if (err) cb(err); else cb(null,{});})
+        ;
+}
+
